@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RedNote Lite - 阿泽定制版 v8.3</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=Noto+Serif+SC:wght@300;400;600;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+    <style id="dynamic-heading-style"></style>
+
+    <style>
+        /* ==================== 基础交互样式 ==================== */
+        body { font-family: 'Inter', 'Noto Sans SC', sans-serif; background-color: #F3F4F6; overflow: hidden; touch-action: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        input:focus, textarea:focus, select:focus { outline: none; border-color: #000; ring: 1px; }
+
+        /* 拖拽条 */
+        .resizer {
+            width: 4px; background-color: #e5e7eb; cursor: col-resize; transition: background-color 0.2s; position: relative; z-index: 40; flex-shrink: 0; touch-action: none;
+        }
+        .resizer::after { content: ''; position: absolute; top: 0; bottom: 0; left: -15px; right: -15px; z-index: 40; }
+        .resizer:hover, .resizer.active { background-color: #3b82f6; }
+
+        /* 折叠按钮 */
+        .toggle-btn {
+            position: absolute; top: 50%; transform: translateY(-50%); width: 24px; height: 60px;
+            background: white; border: 1px solid #d1d5db; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; z-index: 50; color: #4b5563; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s; border-radius: 4px;
+        }
+        .toggle-btn:hover { background: #f3f4f6; color: #000; transform: translateY(-50%) scale(1.1); }
+        #left-toggle { right: -28px; border-radius: 0 8px 8px 0; border-left: none; }
+        #right-toggle { left: -28px; border-radius: 8px 0 0 8px; border-right: none; }
+
+        .panel-transition { transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        /* 卡片基础 */
+        .card-wrapper {
+            width: 375px; height: 500px; 
+            background: white; position: relative; overflow: hidden; flex-shrink: 0;
+            box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.15);
+            transition: width 0.3s ease, height 0.3s ease, transform 0.2s;
+        }
+
+        /* Markdown 样式 (无表格) */
+        .markdown-body { line-height: 1.7; color: inherit; }
+        .markdown-body p { margin-bottom: 0.8em; }
+        .markdown-body > *:first-child { margin-top: 0 !important; }
+        .markdown-body blockquote p:last-child { margin-bottom: 0; }
+        .markdown-body ul { padding-left: 1.2em; margin-bottom: 0.8em; list-style-type: disc; }
+        .markdown-body pre { 
+            padding: 12px; border-radius: 6px; overflow-x: hidden; 
+            white-space: pre-wrap; word-wrap: break-word;
+            font-family: 'Menlo', monospace; font-size: 0.85em; margin-bottom: 1em;
+        }
+        .markdown-body img {
+            max-width: 100%; height: auto; border-radius: 4px; margin: 12px auto; display: block;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .img-row { display: flex; gap: 8px; margin: 12px 0; justify-content: center; align-items: stretch; }
+        .img-row img { margin: 0 !important; flex: 1; width: 0; min-width: 0; object-fit: cover; height: 100%; }
+
+        /* ==================== 风格主题 CSS ==================== */
+        
+        /* 1. 🔵 浅蓝风 (Light Blue) - 全新配色 */
+        .theme-minimal { 
+            --bg: #EBF5FB;         /* 浅蓝背景 */
+            --text: #1E3A5F;       /* 深蓝文本 */
+            --gray: #566573;       /* 灰蓝辅助色 */
+            --border: #AED6F1;     /* 浅蓝边框 */
+            --accent: #3498DB;     /* 亮蓝提亮色 */
+        }
+        .theme-minimal .card-bg { background-color: var(--bg); height: 100%; padding: 32px; font-family: 'Inter', 'Noto Sans SC', sans-serif; display: flex; flex-direction: column; color: var(--text); }
+        /* 标题颜色改为深蓝，左侧线条改为亮蓝 */
+        .theme-minimal .markdown-body h1 { font-size: 1.5em; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.8em; color: var(--text); border-left: 3px solid var(--accent); padding-left: 12px; }
+        .theme-minimal .markdown-body h2 { font-size: 1.2em; font-weight: 700; margin-top: 1.2em; margin-bottom: 0.5em; color: var(--text); }
+        .theme-minimal .markdown-body h3 { font-size: 1.1em; font-weight: 600; margin-top: 1em; color: var(--text); opacity: 0.9; }
+        /* 引用块配色调整 */
+        .theme-minimal .markdown-body blockquote { border-left: 2px solid var(--accent); padding-left: 16px; color: var(--gray); font-style: italic; margin: 16px 0; background-color: rgba(52, 152, 219, 0.05); padding: 12px 16px; border-radius: 0 8px 8px 0;}
+        /* 代码块背景调整 */
+        .theme-minimal .markdown-body pre { background: #D6EAF8; color: var(--text); border: 1px solid var(--border); border-radius: 8px; }
+        
+        /* 2. 📖 书卷风 */
+        .theme-serif { --bg: #F2EFE9; --text: #2c2c2c; --accent: #B85C5C; }
+        .theme-serif .card-bg { background-color: var(--bg); height: 100%; padding: 32px; font-family: 'Noto Serif SC', serif; display: flex; flex-direction: column; background-image: linear-gradient(to right, rgba(0,0,0,0.02) 1px, transparent 1px); background-size: 100% 100%; }
+        .theme-serif .markdown-body h1 { font-size: 2em; font-weight: 900; color: var(--text); margin-bottom: 30px; letter-spacing: 2px; border-left: 4px solid var(--accent); padding-left: 16px; }
+        .theme-serif .markdown-body h2 { font-size: 1.2em; font-weight: 700; color: var(--accent); margin-top: 20px; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 4px; }
+        .theme-serif .markdown-body h3 { font-size: 1.15em; font-weight: 700; color: #333; margin-top: 16px; margin-bottom: 8px; }
+        .theme-serif .markdown-body h4 { font-size: 1.05em; font-weight: 700; color: #666; margin-top: 12px; margin-bottom: 4px; }
+        .theme-serif .markdown-body blockquote { font-family: "FangSong", serif; color: #555; background: rgba(255,255,255,0.5); padding: 10px; font-size: 1.05em; margin: 15px 0; }
+        .theme-serif .markdown-body pre { background: #fff; border: 1px solid #ddd; color: #444; }
+        
+        /* 3. ⚡ 冲击波 (Acid) */
+        .theme-acid { --bg: #CCFF00; --text: #000; --accent: #000; }
+        .theme-acid .card-bg { background-color: var(--bg); height: 100%; padding: 24px; display: flex; flex-direction: column; font-family: 'Noto Sans SC', sans-serif;}
+        .theme-acid .markdown-body h1 { font-size: 1.6em; font-weight: 900; border-bottom: 5px solid #000; text-transform: uppercase; margin: 0.6em 0; line-height: 1.1; font-family: sans-serif; }
+        .theme-acid .markdown-body h2 { font-size: 1.3em; font-weight: 800; background: #000; color: var(--bg); display: block; width: fit-content; padding: 4px 10px; transform: skew(-5deg); margin: 1em 0 0.5em; }
+        .theme-acid .markdown-body h3 { font-size: 1.15em; font-weight: 800; background: #fff; border: 3px solid #000; display: block; width: fit-content; padding: 2px 8px; transform: skew(-5deg); margin: 1em 0 0.4em; box-shadow: 3px 3px 0px #000; }
+        .theme-acid .markdown-body h4 { font-size: 1em; font-weight: 900; display: flex; items-center; gap: 6px; width: fit-content; margin: 0.8em 0 0.2em; }
+        .theme-acid .markdown-body h4::before { content: ''; display: inline-block; width: 8px; height: 8px; background: #000; }
+        .theme-acid .markdown-body blockquote { border-left: 6px solid #000; background: rgba(255,255,255,0.5); padding: 12px; font-weight: bold; border: 2px solid #000; box-shadow: 4px 4px 0px rgba(0,0,0,0.1); }
+        .theme-acid .markdown-body pre { background: #000; color: var(--bg); border: 2px solid #000; }
+
+        /* 4. 🔵 科技风 (Tech) */
+        .theme-tech { --bg: #0F172A; --text: #E2E8F0; --accent: #3B82F6; }
+        .theme-tech .card-bg { background: var(--bg); height: 100%; padding: 24px; color: var(--text); position: relative; font-family: 'Inter', sans-serif; }
+        .theme-tech .grid-bg { position: absolute; inset: 0; background-image: linear-gradient(rgba(59,130,246,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.1) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; }
+        .theme-tech .markdown-body h1 { font-size: 1.6em; font-weight: 800; background: linear-gradient(to right, #60A5FA, #A78BFA); -webkit-background-clip: text; color: transparent; border-bottom: 4px solid #7ea4f8;}
+        .theme-tech .markdown-body blockquote { border-left: 4px solid #8B5CF6; background: rgba(139, 92, 246, 0.1); color: #D8B4FE; border-bottom: 2px solid #000;}
+        .theme-tech .markdown-body pre { background: rgba(15, 23, 42, 0.8); border: 1px solid #3B82F6; }
+    </style>
+</head>
+<body class="flex h-screen w-full text-gray-800 select-none overflow-hidden">
+
+    <aside id="left-panel" class="bg-white border-r border-gray-200 flex flex-col z-20 shadow-xl shrink-0 panel-transition relative" style="width: 350px;">
+        
+        <div class="h-12 border-b border-gray-100 flex items-center justify-between px-4 shrink-0 bg-white">
+            <h2 class="font-bold text-sm flex items-center gap-2"><i data-lucide="pen-tool" size="14"></i> 正文编辑</h2>
+            <button onclick="pasteFromClipboard()" class="text-green-600 hover:bg-green-50 px-2 py-1 rounded text-xs flex items-center gap-1 transition-colors border border-green-200" title="读取剪贴板">
+                <i data-lucide="clipboard-paste" size="12"></i> 粘贴
+            </button>
+        </div>
+
+        <div class="flex-1 p-4 flex flex-col h-full overflow-hidden">
+            <div class="mb-2 flex justify-between items-center">
+                <span class="text-xs text-gray-400">Markdown / 图片粘贴(Ctrl+V)</span>
+                <label class="cursor-pointer text-blue-500 hover:bg-blue-50 px-2 py-1 rounded text-xs flex items-center gap-1 transition-colors border border-blue-200">
+                    <i data-lucide="image-plus" size="12"></i> 插入图片
+                    <input type="file" accept="image/*" class="hidden" onchange="handleBodyImageUpload(this)">
+                </label>
+            </div>
+            
+            <textarea id="input-content" class="flex-1 w-full bg-gray-50 border border-gray-200 rounded-lg p-3 font-mono text-xs leading-relaxed resize-none shadow-sm focus:bg-white focus:border-black focus:ring-1 focus:ring-black transition-all outline-none" oninput="updatePreview()" spellcheck="false">
+# 这是一个一级标题
+
+## 这是一个二级标题
+
+这里是正文段落。如果需要强调，可以使用**加粗文字**。
+
+### 常用功能演示：
+
+**1. 列表**
+- 观点一：阅读很重要
+- 观点二：亲子陪伴
+
+**2. 引用块**
+> “阅读是孩子看世界的窗口。”
+
+**3. 如何分页？**
+在需要切分的地方输入 `@` 加上三个减号：
+@---
+
+**4. 如何插入图片？**
+- 方法A：直接截图，在这里按 Ctrl+V 粘贴
+- 方法B：点击上方的“插入图片”按钮
+</textarea>
+            <div class="mt-2 text-[10px] text-gray-400 text-center">输入 @ + --- 可强制分页</div>
+        </div>
+
+        <div id="left-toggle" class="toggle-btn" onclick="togglePanel('left')" title="折叠/展开">
+            <i data-lucide="chevron-left" size="16"></i>
+        </div>
+    </aside>
+
+    <div id="resizer-left" class="resizer"></div>
+
+    <main class="flex-1 bg-[#E5E5E5] relative overflow-hidden flex flex-col group/preview min-w-0">
+        
+        <div class="absolute bottom-6 right-6 z-30 flex flex-col items-end pointer-events-none">
+             
+             <div id="toolbar-actions" class="pointer-events-auto bg-white/90 backdrop-blur-md rounded-2xl p-2 shadow-2xl border border-white/60 flex flex-col gap-2 mb-3 transform origin-bottom-right scale-0 opacity-0 transition-all duration-300 ease-out">
+                 <div class="flex items-center bg-gray-50 rounded-lg p-1">
+                    <button onclick="changeZoom(-0.1); hideToolbar();" class="w-8 h-8 flex items-center justify-center hover:bg-white rounded-md text-gray-600 shadow-sm active:scale-90"><i data-lucide="minus" size="16"></i></button>
+                    <span id="zoom-val" class="w-10 text-center font-mono text-xs font-bold text-gray-600">100%</span>
+                    <button onclick="changeZoom(0.1); hideToolbar();" class="w-8 h-8 flex items-center justify-center hover:bg-white rounded-md text-gray-600 shadow-sm active:scale-90"><i data-lucide="plus" size="16"></i></button>
+                 </div>
+                 <button onclick="toggleLayout(); hideToolbar();" id="layout-btn" class="w-full h-8 flex items-center justify-center bg-gray-50 hover:bg-blue-50 text-gray-600 hover:text-blue-600 rounded-lg text-xs font-bold transition-all active:scale-95 gap-2">
+                    <i data-lucide="layout-grid" size="16"></i> <span>切换视图</span>
+                 </button>
+             </div>
+
+             <button onclick="toggleToolbar()" id="toolbar-toggle" class="pointer-events-auto w-12 h-12 bg-black text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-90 transition-all duration-200 border-2 border-white/20">
+                <i data-lucide="settings-2" size="20"></i>
+             </button>
+        </div>
+
+        <div id="scroll-container" class="flex-1 overflow-y-auto p-8 w-full custom-scrollbar flex justify-center">
+            <div id="preview-canvas" class="flex flex-col items-center gap-8 origin-top transition-transform duration-200 pb-32"></div>
+        </div>
+    </main>
+
+    <div id="resizer-right" class="resizer"></div>
+
+    <aside id="right-panel" class="bg-white border-l border-gray-200 flex flex-col z-20 shadow-xl shrink-0 panel-transition relative" style="width: 320px;">
+        
+        <div class="h-12 border-b border-gray-100 flex items-center justify-between px-4 shrink-0 bg-white">
+            <div class="flex items-center gap-2">
+                <div class="w-6 h-6 bg-black rounded flex items-center justify-center text-white font-bold text-xs">R</div>
+                <h1 class="font-bold text-sm">参数设置</h1>
+            </div>
+            <button onclick="downloadAll()" class="bg-black hover:bg-gray-800 text-white text-xs px-3 py-1.5 rounded font-bold flex items-center gap-1 transition-all shadow-sm">
+                <i data-lucide="download" size="12"></i> 导出JPG
+            </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar">
+            
+            <div>
+                <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">风格主题</h3>
+                <div class="grid grid-cols-2 gap-2" id="style-grid"></div>
+            </div>
+
+            <div class="space-y-4 pt-4 border-t border-gray-100">
+                <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest">封面信息</h3>
+                
+                <div class="bg-blue-50 border border-blue-100 rounded-lg p-2">
+                    <div class="flex items-center gap-2">
+                        <label class="flex-1 cursor-pointer bg-white border border-blue-200 text-blue-500 text-xs font-bold py-1.5 px-2 rounded hover:bg-blue-50 flex items-center justify-center gap-1 transition-colors">
+                            <i data-lucide="image" size="12"></i> 换图
+                            <input type="file" id="cover-image-upload" accept="image/*" class="hidden" onchange="handleImageUpload(this)">
+                        </label>
+                        <button onclick="clearImage()" class="bg-white border border-red-200 text-red-500 p-1.5 rounded hover:bg-red-50" title="移除图片"><i data-lucide="trash-2" size="14"></i></button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">封面大标题</label>
+                    <input type="text" id="input-title" class="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1.5 text-xs font-bold focus:bg-white focus:ring-1 focus:ring-black outline-none" value="高效育儿心得" oninput="updatePreview()">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-1">封面简介</label>
+                    <textarea id="input-intro" rows="2" class="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1.5 text-xs resize-none focus:bg-white focus:ring-1 focus:ring-black outline-none" oninput="updatePreview()"></textarea>
+                </div>
+                 <div class="grid grid-cols-2 gap-2">
+                    <div><label class="block text-xs font-bold text-gray-500 mb-1">日期</label><input type="text" id="input-date" class="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1.5 text-xs" value="VOL.08" oninput="updatePreview()"></div>
+                    <div><label class="block text-xs font-bold text-gray-500 mb-1">作者</label><input type="text" id="input-tag" class="w-full bg-gray-50 border border-gray-200 rounded px-2 py-1.5 text-xs" value="@阿泽的育儿书架" oninput="updatePreview()"></div>
+                </div>
+            </div>
+
+            <div class="space-y-4 pt-4 border-t border-gray-100">
+                <h3 class="text-xs font-black text-gray-400 uppercase tracking-widest">外观参数</h3>
+                
+                <div>
+                    <label class="text-xs font-bold text-gray-600 mb-1 block">画布尺寸</label>
+                    <div class="relative">
+                        <select id="canvas-size" class="w-full bg-gray-50 border border-gray-200 text-xs rounded px-2 py-1.5 focus:ring-1 focus:ring-black outline-none appearance-none cursor-pointer" onchange="updatePreview()">
+                            <option value="375x500">📕 小红书 (3:4)</option>
+                            <option value="375x667">📱 手机海报 (9:16)</option>
+                        </select>
+                        <i data-lucide="chevron-down" size="14" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                     <div>
+                         <div class="flex justify-between text-xs text-gray-500 mb-1"><span>封面字号</span><span id="title-size-val">48px</span></div>
+                         <input type="range" id="title-size" min="30" max="80" value="48" class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black" oninput="updatePreview()">
+                     </div>
+
+                     <div>
+                         <div class="flex justify-between text-xs text-gray-500 mb-1"><span>正文字号</span><span id="body-size-val">15px</span></div>
+                         <input type="range" id="body-size" min="8" max="24" value="15" class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black" oninput="updatePreview()">
+                     </div>
+
+                     <div class="pt-2 border-t border-gray-100">
+                         <div class="flex justify-between text-xs text-gray-500 mb-1"><span>标题整体 (H1-H4)</span><span id="heading-scale-val">26px</span></div>
+                         <input type="range" id="heading-scale" min="20" max="60" value="26" class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black" oninput="updatePreview()">
+                     </div>
+                </div>
+            </div>
+
+            <div class="mt-8 pt-6 border-t border-gray-100 text-center pb-6">
+                <p class="text-[10px] text-gray-400 font-mono leading-relaxed opacity-70">
+                    小红书笔记生成器<br>
+                    Customized for <span class="font-bold text-gray-500">@阿泽的育儿书架</span><br>
+                    Powered by Google Gemini
+                </p>
+            </div>
+        </div>
+
+        <div id="right-toggle" class="toggle-btn" onclick="togglePanel('right')" title="折叠/展开">
+            <i data-lucide="chevron-right" size="16"></i>
+        </div>
+    </aside>
+
+    <script>
+        // 隐藏彩蛋
+        console.log("%c RedNote Lite | Customized for @阿泽的育儿书架 | Powered by Google Gemini", "background: #000; color: #fff; padding: 4px; border-radius: 4px;");
+
+        const STYLES = [
+            // 更新了浅蓝色的配置
+            { id: 'minimal', name: '🔵 浅蓝风', class: 'theme-minimal', bg: '#EBF5FB', text: '#1E3A5F' },
+            { id: 'serif', name: '📖 书卷风', class: 'theme-serif', bg: '#F2EFE9', text: '#2c2c2c' },
+            { id: 'acid', name: '⚡ 冲击波', class: 'theme-acid', bg: '#CCFF00', text: '#000' },
+            { id: 'tech', name: '🔵 科技风', class: 'theme-tech', bg: '#0F172A', text: '#FFF' },
+        ];
+
+        let state = { 
+            styleId: 'minimal', 
+            titleSize: 48, 
+            introSize: 14, 
+            bodySize: 15,
+            coverImage: null,
+            bodyImages: {}
+        };
+
+        const renderer = new marked.Renderer();
+        renderer.image = function(href, title, text) {
+            let widthStyle = '';
+            let altText = text;
+            if (text && text.includes('|')) {
+                const parts = text.split('|');
+                altText = parts[0];
+                const width = parts[1];
+                if (width.match(/^[0-9]+(%|px)$/)) {
+                    widthStyle = `width: ${width};`;
+                }
+            }
+            let imgSource = href;
+            if (href && href.startsWith('img:')) {
+                const id = href.split(':')[1];
+                if (state.bodyImages[id]) {
+                    imgSource = state.bodyImages[id];
+                }
+            }
+            return `<img src="${imgSource}" alt="${altText}" title="${title || ''}" style="${widthStyle}">`;
+        };
+
+        marked.setOptions({ breaks: true, gfm: true, renderer: renderer });
+
+        window.onload = () => { 
+            renderStyleGrid(); 
+            initUrlParams(); 
+            updatePreview(); 
+            lucide.createIcons(); 
+            initResizers(); // 启动拖拽
+            enablePasteImage(); // 启动粘贴
+        };
+
+        let isToolbarOpen = false;
+        function toggleToolbar() {
+            isToolbarOpen = !isToolbarOpen;
+            const actions = document.getElementById('toolbar-actions');
+            const toggleIcon = document.querySelector('#toolbar-toggle i');
+            if (isToolbarOpen) {
+                actions.classList.remove('scale-0', 'opacity-0');
+                toggleIcon.setAttribute('data-lucide', 'x');
+            } else {
+                actions.classList.add('scale-0', 'opacity-0');
+                toggleIcon.setAttribute('data-lucide', 'settings-2');
+            }
+            lucide.createIcons();
+        }
+
+        function hideToolbar() {
+            if(isToolbarOpen) toggleToolbar();
+        }
+
+        let panelState = { left: { width: 350, collapsed: false }, right: { width: 320, collapsed: false } };
+
+        function togglePanel(side) {
+            const panel = document.getElementById(`${side}-panel`);
+            const btnIcon = document.querySelector(`#${side}-toggle i`);
+            panelState[side].collapsed = !panelState[side].collapsed;
+            if (panelState[side].collapsed) {
+                panelState[side].width = parseInt(panel.style.width);
+                panel.style.width = '0px'; panel.style.padding = '0px'; panel.style.border = 'none';
+                btnIcon.setAttribute('data-lucide', side === 'left' ? 'chevron-right' : 'chevron-left');
+            } else {
+                panel.style.width = panelState[side].width + 'px';
+                panel.style.removeProperty('padding'); panel.style.removeProperty('border');
+                btnIcon.setAttribute('data-lucide', side === 'left' ? 'chevron-left' : 'chevron-right');
+            }
+            lucide.createIcons();
+        }
+
+        function initResizers() {
+            setupResizer('resizer-left', 'left-panel', 'left');
+            setupResizer('resizer-right', 'right-panel', 'right');
+        }
+
+        function setupResizer(resizerId, panelId, side) {
+            const resizer = document.getElementById(resizerId);
+            const panel = document.getElementById(panelId);
+            let isResizing = false;
+            const getX = (e) => e.touches ? e.touches[0].clientX : e.clientX;
+            const startResize = (e) => { isResizing = true; resizer.classList.add('active'); document.body.style.cursor = 'col-resize'; document.body.classList.add('select-none'); if (e.touches) e.preventDefault(); };
+            const onMove = (e) => {
+                if (!isResizing) return;
+                if (panelState[side].collapsed) togglePanel(side);
+                const clientX = getX(e);
+                let newWidth = side === 'left' ? clientX : window.innerWidth - clientX;
+                if (newWidth < 100) newWidth = 100; if (newWidth > 600) newWidth = 600;
+                panel.style.width = newWidth + 'px'; panelState[side].width = newWidth;
+            };
+            const endResize = () => { if(isResizing) { isResizing = false; resizer.classList.remove('active'); document.body.style.cursor = 'default'; document.body.classList.remove('select-none'); } };
+            resizer.addEventListener('mousedown', startResize); document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', endResize);
+            resizer.addEventListener('touchstart', startResize, { passive: false }); document.addEventListener('touchmove', onMove, { passive: false }); document.addEventListener('touchend', endResize);
+        }
+
+        function initUrlParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if(urlParams.has('title')) document.getElementById('input-title').value = decodeURIComponent(urlParams.get('title'));
+            if(urlParams.has('content')) document.getElementById('input-content').value = decodeURIComponent(urlParams.get('content'));
+        }
+
+        async function pasteFromClipboard() {
+            try {
+                const text = await navigator.clipboard.readText();
+                const textarea = document.getElementById('input-content');
+                textarea.value = textarea.value.substring(0, textarea.selectionStart) + text + textarea.value.substring(textarea.selectionEnd);
+                textarea.focus(); updatePreview();
+            } catch (err) { alert('请使用 Ctrl+V 粘贴'); }
+        }
+        
+        function enablePasteImage() {
+            document.getElementById('input-content').addEventListener('paste', function(e) {
+                const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                for (let i = 0; i < items.length; i++) {
+                    if (items[i].kind === 'file' && items[i].type.indexOf('image/') !== -1) {
+                        e.preventDefault();
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            const id = Date.now().toString(); state.bodyImages[id] = event.target.result;
+                            const textarea = document.getElementById('input-content');
+                            textarea.value = textarea.value.substring(0, textarea.selectionStart) + `![截图](img:${id})` + textarea.value.substring(textarea.selectionEnd);
+                            updatePreview();
+                        };
+                        reader.readAsDataURL(items[i].getAsFile());
+                    }
+                }
+            });
+        }
+
+        function renderStyleGrid() {
+            const grid = document.getElementById('style-grid'); grid.innerHTML = '';
+            STYLES.forEach(style => {
+                const btn = document.createElement('button');
+                const isActive = style.id === state.styleId;
+                btn.className = `p-2.5 rounded-lg border text-xs font-bold transition-all flex items-center justify-center gap-2 relative overflow-hidden group ${isActive ? 'border-black bg-black text-white' : 'border-gray-200 hover:bg-gray-50'}`;
+                btn.innerHTML = `<div class="w-2 h-2 rounded-full border border-black/10 ${isActive ? 'border-white/50' : ''}" style="background-color: ${style.bg}"></div>${style.name.split(' ')[1]}`;
+                btn.onclick = () => { state.styleId = style.id; renderStyleGrid(); updatePreview(); };
+                grid.appendChild(btn);
+            });
+        }
+
+        function handleImageUpload(input) {
+            const file = input.files[0]; if (!file) return;
+            const reader = new FileReader(); reader.onload = (e) => { state.coverImage = e.target.result; updatePreview(); }; reader.readAsDataURL(file);
+        }
+
+        function handleBodyImageUpload(input) {
+            const file = input.files[0]; if (!file) return;
+            const reader = new FileReader(); reader.onload = (e) => {
+                const id = Date.now().toString(); state.bodyImages[id] = e.target.result;
+                const textarea = document.getElementById('input-content'); textarea.value = textarea.value + `\n![插图](img:${id})\n`; updatePreview(); input.value = '';
+            }; reader.readAsDataURL(file);
+        }
+
+        function clearImage() { state.coverImage = null; document.getElementById('cover-image-upload').value = ''; updatePreview(); }
+
+        // ==================== 核心：渲染与包裹逻辑 ====================
+        function updatePreview() {
+            const container = document.getElementById('preview-canvas'); container.innerHTML = '';
+            
+            const title = document.getElementById('input-title').value;
+            const date = document.getElementById('input-date').value;
+            const tag = document.getElementById('input-tag').value;
+            const intro = document.getElementById('input-intro').value; 
+            const rawContent = document.getElementById('input-content').value;
+            
+            state.bodySize = document.getElementById('body-size').value;
+            state.titleSize = document.getElementById('title-size').value;
+            
+            const baseSize = document.getElementById('heading-scale').value;
+            document.getElementById('heading-scale-val').innerText = baseSize + 'px';
+            document.getElementById('dynamic-heading-style').innerHTML = `
+                .markdown-body h1 { font-size: ${baseSize}px !important; line-height: 1.3 !important; }
+                .markdown-body h2 { font-size: ${Math.round(baseSize * 0.75)}px !important; line-height: 1.35 !important; margin-top: 0.5em !important; margin-bottom: 0.3em !important; }
+                .markdown-body h3 { font-size: ${Math.round(baseSize * 0.6)}px !important; margin-top: 0.5em !important; }
+                .markdown-body h4 { font-size: ${Math.round(baseSize * 0.5)}px !important; }
+            `;
+
+            document.getElementById('body-size-val').innerText = state.bodySize + 'px';
+            document.getElementById('title-size-val').innerText = state.titleSize + 'px';
+
+            const sizeVal = document.getElementById('canvas-size').value.split('x');
+            const cardWidth = sizeVal[0];
+            const cardHeight = sizeVal[1];
+            const styleConfig = STYLES.find(s => s.id === state.styleId);
+            const pages = rawContent.split('@---');
+
+            const createCardWithDownload = (elementHTML, filename) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'relative group'; 
+
+                const card = document.createElement('div');
+                card.className = `card-wrapper ${styleConfig.class}`;
+                card.style.width = cardWidth + 'px';
+                card.style.height = cardHeight + 'px';
+                card.innerHTML = elementHTML;
+
+                const btn = document.createElement('button');
+                btn.className = 'absolute top-3 right-3 z-50 bg-black/60 hover:bg-black text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-lg cursor-pointer transform hover:scale-110';
+                btn.title = "保存为JPG";
+                btn.innerHTML = '<i data-lucide="download" size="16"></i>';
+                btn.onclick = (e) => { e.stopPropagation(); saveSingleCard(card, filename, btn); };
+
+                wrapper.appendChild(card);
+                wrapper.appendChild(btn);
+                return wrapper;
+            };
+
+            container.appendChild(createCardWithDownload(renderCoverHTML(styleConfig, title, date, tag, intro), `rednote_cover.jpg`));
+
+            pages.forEach((pageText, index) => {
+                if (!pageText.trim()) return;
+                let processedText = pageText.replace(/::: row\n([\s\S]*?)\n:::/g, '<div class="img-row">$1</div>');
+                const htmlContent = marked.parse(processedText);
+                container.appendChild(createCardWithDownload(renderPageHTML(styleConfig, htmlContent, index + 1, date), `rednote_page_${index+1}.jpg`));
+            });
+            lucide.createIcons();
+        }
+
+        // ==================== 极速 JPG 导出逻辑 ====================
+        async function saveSingleCard(element, filename, btn) {
+            const originalIcon = btn.innerHTML;
+            btn.innerHTML = '<i data-lucide="loader-2" class="animate-spin" size="16"></i>'; 
+            btn.classList.add('bg-blue-600', 'opacity-100'); btn.classList.remove('bg-black/60', 'group-hover:opacity-100');
+
+            try {
+                const dataUrl = await htmlToImage.toJpeg(element, { 
+                    quality: 0.85, 
+                    pixelRatio: 4, 
+                    backgroundColor: '#ffffff' 
+                });
+                saveAs(dataUrl, filename);
+            } catch (error) {
+                console.error('保存失败:', error);
+                alert('保存出错');
+            } finally {
+                setTimeout(() => {
+                    btn.innerHTML = originalIcon;
+                    btn.classList.remove('bg-blue-600', 'opacity-100');
+                    btn.classList.add('bg-black/60');
+                    lucide.createIcons();
+                }, 300);
+            }
+        }
+
+        async function downloadAll() {
+            const btn = document.querySelector('button[onclick="downloadAll()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `<i data-lucide="loader-2" class="animate-spin" size="14"></i> 导出中...`;
+            
+            try {
+                const zip = new JSZip();
+                const cards = document.querySelectorAll('.card-wrapper');
+                
+                for (let i = 0; i < cards.length; i++) {
+                    const dataUrl = await htmlToImage.toJpeg(cards[i], { 
+                        quality: 0.85,
+                        pixelRatio: 4, 
+                        backgroundColor: '#ffffff'
+                    });
+                    const imgData = dataUrl.split(',')[1];
+                    zip.file(`rednote_page_${i+1}.jpg`, imgData, {base64: true});
+                }
+                
+                const content = await zip.generateAsync({type:"blob"});
+                saveAs(content, "RedNote_Images_JPG.zip");
+                
+            } catch (error) {
+                console.error('导出失败:', error);
+                alert('导出出错');
+            } finally {
+                btn.innerHTML = originalText; 
+                lucide.createIcons(); 
+            }
+        }
+
+        function renderCoverHTML(config, title, date, tag, intro) {
+            if (state.coverImage) {
+                let themeStyles = {
+                    // 更新了浅蓝色的封面配置
+                    'minimal': { bg: '#EBF5FB', text: '#566573', title: '#1E3A5F', border: '#3498DB', fontTitle: "'Inter', sans-serif", fontBody: "'Inter', sans-serif" },
+                    'serif':  { bg: '#F2EFE9', text: '#2c2c2c', title: '#2c2c2c', border: '#B85C5C', fontTitle: "'Noto Serif SC', serif", fontBody: "'FangSong', serif" },
+                    'acid':   { bg: '#CCFF00', text: '#000', title: '#000', border: '#000', fontTitle: "sans-serif", fontBody: "'Noto Sans SC', sans-serif" },
+                    'tech':   { bg: '#0F172A', text: '#94A3B8', title: '#FFF', border: '#3B82F6', fontTitle: "'Inter', sans-serif", fontBody: "'Inter', sans-serif" }
+                };
+                let s = themeStyles[config.id];
+                let titleStyle = `color: ${s.title};`;
+                if(config.id === 'tech') titleStyle = `background: linear-gradient(to right, #60A5FA, #A78BFA); -webkit-background-clip: text; color: transparent;`;
+                
+                return `
+                <div class="card-bg p-0 flex flex-col h-full overflow-hidden" style="padding: 0; background-color: ${s.bg};">
+                    <div class="h-[55%] w-full relative overflow-hidden bg-gray-100"><img src="${state.coverImage}" class="w-full h-full object-cover"></div>
+                    <div class="h-[45%] w-full p-8 flex flex-col justify-center text-left">
+                        <div class="flex items-center gap-2 mb-4 text-xs font-bold opacity-70" style="color: ${s.text};"><i data-lucide="user" size="14"></i><span>${tag}</span></div>
+                        <h1 class="leading-[1.1] mb-5 font-bold" style="font-size: ${state.titleSize}px; margin-left:0; margin-right:0; text-align: left; text-shadow: none; border: none; padding: 0; font-family: ${s.fontTitle}; ${titleStyle}">${title}</h1>
+                        <div class="pl-4 border-l-4 leading-relaxed opacity-90 font-medium" style="border-color: ${s.border}; color: ${s.text}; font-family: ${s.fontBody}; white-space: pre-wrap; font-size: ${state.introSize}px;">${intro}</div>
+                    </div>
+                </div>`;
+            }
+            if (config.id === 'minimal') {
+                // 更新了浅蓝色纯文字封面的配色
+                return `<div class="card-bg flex flex-col justify-between" style="padding: 40px; background: #EBF5FB;">
+                    <div class="flex-1 flex flex-col justify-center items-start">
+                        <div class="text-xs font-bold uppercase tracking-widest mb-4" style="color: #566573;">${date}</div>
+                        <h1 class="font-black leading-tight text-left mb-6" style="font-size: ${state.titleSize}px; letter-spacing: -0.03em; color: #1E3A5F;">${title}</h1>
+                        <div class="w-16 h-1 mb-8" style="background-color: #3498DB;"></div>
+                        <p class="font-medium leading-relaxed" style="font-size: 16px; color: #566573;">${intro}</p>
+                    </div>
+                    <div class="flex justify-between items-center w-full pt-8 mt-auto" style="border-top: 1px solid #AED6F1;">
+                        <div class="flex items-center gap-2 text-xs font-bold" style="color: #1E3A5F;">
+                            <span class="w-6 h-6 rounded-full text-white flex items-center justify-center" style="background-color: #3498DB;">R</span>
+                            ${tag}
+                        </div>
+                        <i data-lucide="arrow-right" style="color: #AED6F1;" size="20"></i>
+                    </div>
+                </div>`;
+            }
+            if (config.id === 'serif') return `<div class="card-bg justify-center"><div class="border-l-4 border-[#B85C5C] pl-6"><div class="text-[#B85C5C] font-bold mb-6 tracking-widest text-xs">${date}</div><h1 class="font-bold text-[#2c2c2c] leading-tight" style="font-size: ${state.titleSize}px">${title}</h1><div class="mt-8 text-gray-500 font-medium border-t border-gray-300 pt-4 inline-block text-sm">${tag}</div></div></div>`;
+            if (config.id === 'acid') return `<div class="card-bg"><div class="flex justify-between border-b-2 border-black pb-2 mb-6 font-mono text-xs font-bold"><span>${date}</span><span>ISSUE</span></div><div class="flex-1 flex flex-col justify-center items-center text-center"><h1 class="text-black font-black uppercase leading-[0.9] transform skew-x-2 drop-shadow-xl" style="font-size: ${state.titleSize}px;">${title}</h1><div class="mt-6 bg-black text-[#CCFF00] px-4 py-2 font-bold text-lg transform skew-x-12">${tag}</div></div></div>`;
+            if (config.id === 'tech') return `<div class="card-bg justify-center relative"><div class="grid-bg"></div><div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-blue-500/20 blur-[100px] rounded-full pointer-events-none"></div><div class="z-10 text-center"><div class="text-blue-400 font-mono text-xs mb-6 tracking-[0.3em] uppercase border border-blue-500/30 inline-block px-3 py-1 rounded bg-blue-900/20 backdrop-blur">System Ready</div><h1 class="font-bold leading-tight mb-6" style="font-size: ${state.titleSize}px; background: linear-gradient(to right, #60A5FA, #A78BFA); -webkit-background-clip: text; color: transparent;">${title}</h1><div class="flex items-center justify-center gap-2 text-gray-400 text-xs font-mono"><span>${date}</span><span class="text-blue-500">//</span><span>${tag}</span></div></div></div>`;
+            return `<div class="card-bg justify-center text-center"><h1 class="font-bold text-gray-900 mt-4" style="font-size: ${state.titleSize}px">${title}</h1></div>`;
+        }
+
+        function renderPageHTML(config, html, pageNum, date) {
+            if (config.id === 'minimal') {
+                // 更新了浅蓝色内页的页眉配色
+                return `<div class="card-bg relative flex flex-col h-full"><div class="flex justify-between items-center mb-6 pb-4" style="border-bottom: 1px solid #AED6F1;"><span class="text-xs font-bold tracking-widest" style="color: #AED6F1;">${date}</span><span class="font-bold text-xs px-2 py-1 rounded" style="background-color: #D6EAF8; color: #1E3A5F;">0${pageNum}</span></div><div class="markdown-body flex-1 overflow-hidden" style="font-size: ${state.bodySize}px">${html}</div></div>`;
+            }
+            if (config.id === 'serif') return `<div class="card-bg"><div class="flex justify-between border-b border-gray-300 pb-2 mb-2 text-xs text-gray-400 font-bold tracking-widest"><span>${date}</span><span>第 ${pageNum} 页</span></div><div class="markdown-body flex-1 overflow-hidden" style="font-size: ${state.bodySize}px">${html}</div></div>`;
+            if (config.id === 'acid') return `<div class="card-bg"><div class="flex justify-between border-b-2 border-black pb-2 mb-2 font-mono text-xs font-bold"><span>${date}</span><span>P.0${pageNum}</span></div><div class="markdown-body flex-1 overflow-hidden" style="font-size: ${state.bodySize}px">${html}</div></div>`;
+            return `<div class="card-bg"><div class="markdown-body h-full overflow-hidden" style="font-size: ${state.bodySize}px">${html}</div></div>`;
+        }
+        
+        // Helper functions
+        let currentZoom = 1.0;
+        let isGridView = false;
+        function changeZoom(delta) {
+            currentZoom = parseFloat((currentZoom + delta).toFixed(1));
+            currentZoom = Math.min(Math.max(currentZoom, 0.2), 2.0);
+            const canvas = document.getElementById('preview-canvas');
+            canvas.style.transform = `scale(${currentZoom})`;
+            if(isGridView) canvas.style.width = `${100/currentZoom}%`;
+            else canvas.style.width = '100%';
+            document.getElementById('zoom-val').innerText = Math.round(currentZoom * 100) + '%';
+        }
+
+        function toggleLayout() {
+            isGridView = !isGridView;
+            const canvas = document.getElementById('preview-canvas');
+            const btn = document.getElementById('layout-btn');
+            if (isGridView) {
+                canvas.classList.remove('flex-col', 'items-center');
+                canvas.classList.add('flex-row', 'flex-wrap', 'justify-center', 'items-start');
+                canvas.style.width = `${100/currentZoom}%`;
+                btn.innerHTML = `<i data-lucide="list" size="16"></i> <span>列表视图</span>`;
+                btn.classList.add('text-blue-600');
+            } else {
+                canvas.classList.add('flex-col', 'items-center');
+                canvas.classList.remove('flex-row', 'flex-wrap', 'justify-center', 'items-start');
+                canvas.style.width = '100%';
+                btn.innerHTML = `<i data-lucide="layout-grid" size="16"></i> <span>网格视图</span>`;
+                btn.classList.remove('text-blue-600');
+            }
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>
